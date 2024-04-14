@@ -16,23 +16,58 @@ export class CommsComponent implements OnInit {
 
   constructor(private commService: CommService) {}
 
-  ngOnInit(): void {
-    this.commService.getComments().subscribe((comms) => {
-      this.comms = comms;
-    });
+  validateInputs(): boolean {
+    return (
+      this.newCommentName.trim().length > 0 &&
+      this.newCommentBody.trim().length > 0
+    );
   }
 
-  addComment(name: string, body: string) {
-    // Check if the name or body inputs are empty or consist only of whitespace
-    if (!name || !name.trim() || !body || !body.trim()) {
-      this.showError = true; // Set the flag to show the error message
-      return; // Exit the function to prevent adding an empty comment
+  ngOnInit(): void {
+    this.loadComments();
+  }
+
+  loadComments() {
+    const storedComments = localStorage.getItem('comms');
+    if (storedComments) {
+      this.comms = JSON.parse(storedComments);
+    } else {
+      this.commService.getComments().subscribe((comms) => {
+        this.comms = comms;
+        this.updateLocalStorage();
+      });
     }
+  }
 
-    const newComment = { name: name.trim(), body: body.trim() };
-    this.comms.unshift(newComment);
+  updateLocalStorage() {
+    localStorage.setItem('comms', JSON.stringify(this.comms));
+  }
 
-    // Clear the input fields and hide the error message after successfully adding a comment
+  addComment(): void {
+    if (this.validateInputs()) {
+      const newComment: Comm = {
+        id: 0,
+        name: this.newCommentName.trim(),
+        body: this.newCommentBody.trim(),
+      };
+
+      this.commService.addComment(newComment).subscribe({
+        next: (addedComment) => {
+          this.comms.unshift(addedComment);
+          this.updateLocalStorage();
+          this.resetInputFields();
+        },
+        error: (error) => {
+          console.error('Failed to add comment:', error);
+          this.showError = true;
+        },
+      });
+    } else {
+      this.showError = true;
+    }
+  }
+
+  resetInputFields() {
     this.newCommentName = '';
     this.newCommentBody = '';
     this.showError = false;
